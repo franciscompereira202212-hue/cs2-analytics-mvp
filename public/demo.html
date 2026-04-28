@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<h2>Demo Analysis</h2>
+
+<div id="content"></div>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+const file = params.get("file");
+
+async function loadDemo() {
+  const res = await fetch(`/demo/${file}`);
+  const data = await res.json();
+
+  const div = document.getElementById("content");
+
+  div.innerHTML = `
+    <p><b>File:</b> ${data.file}</p>
+    <p><b>Rounds:</b> ${data.rounds}</p>
+    <p><b>Kills:</b> ${data.kills}</p>
+    <p><b>Deaths:</b> ${data.deaths}</p>
+
+    <h3>Mistakes:</h3>
+    <ul>
+      ${data.mistakes.map(m => `<li>${m}</li>`).join("")}
+    </ul>
+  `;
+}
+
+loadDemo();
+</script>
+
+</body>
+</html>
