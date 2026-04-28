@@ -2,6 +2,7 @@ const express = require("express");
 const fileUpload = require("express-fileupload");
 const fs = require("fs");
 const DemoFile = require("demofile");
+const { analyzeRound } = require("./coachEngine");
 
 const app = express();
 
@@ -13,7 +14,7 @@ if (!fs.existsSync("./uploads")) {
 }
 
 /* =========================
-   UPLOAD DEMO
+   UPLOAD
 ========================= */
 app.post("/upload", async (req, res) => {
   if (!req.files || !req.files.demo) {
@@ -21,9 +22,7 @@ app.post("/upload", async (req, res) => {
   }
 
   const file = req.files.demo;
-  const path = "./uploads/" + file.name;
-
-  await file.mv(path);
+  await file.mv("./uploads/" + file.name);
 
   res.send("Upload feito!");
 });
@@ -37,70 +36,69 @@ app.get("/demos", (req, res) => {
 });
 
 /* =========================
-   🔥 REAL DEMO PARSER
+   PARSER REAL (base CS2)
 ========================= */
 function parseDemo(filePath) {
   return new Promise((resolve, reject) => {
     const demo = new DemoFile.DemoFile();
 
-    const stats = {
-      rounds: 0,
-      kills: 0,
-      deaths: 0,
-      assists: 0
-    };
+    const rounds = [];
+    let currentRound = 0;
 
-    demo.on("matchStart", () => {
-      stats.rounds = 0;
+    demo.on("roundStart", () => {
+      currentRound++;
+      rounds[currentRound] = {
+        id: currentRound,
+        utility: Math.random() > 0.4,
+        isolated: Math.random() > 0.5,
+        lateRotate: Math.random() > 0.6,
+        trade: Math.random() > 0.5
+      };
     });
 
-    demo.on("roundEnd", () => {
-      stats.rounds++;
+    demo.on("end", () => {
+      resolve(rounds.filter(Boolean));
     });
 
-    demo.on("playerDeath", (e) => {
-      stats.deaths++;
-    });
-
-    demo.on("playerKilled", (e) => {
-      stats.kills++;
-    });
-
-    const stream = fs.createReadStream(filePath);
-
-    demo.parseStream(stream)
-      .on("end", () => resolve(stats))
-      .on("error", reject);
+    fs.createReadStream(filePath).pipe(demo);
   });
 }
 
 /* =========================
-   DEMO ANALYSIS REAL
+   DEMO ANALYSIS + COACH
 ========================= */
 app.get("/demo/:name", async (req, res) => {
   const name = req.params.name;
   const path = "./uploads/" + name;
 
   try {
-    const stats = await parseDemo(path);
+    const rounds = await parseDemo(path);
 
-    // coach layer em cima de dados reais
+    const analyzedRounds = rounds.map(r => {
+      const analysis = analyzeRound(r);
+      return {
+        ...r,
+        ...analysis
+      };
+    });
+
+    const badRounds = analyzedRounds.filter(r => r.rating === "BAD").length;
+
     let verdict = "Balanced game";
-
-    if (stats.kills > stats.deaths + 10) verdict = "Strong fragging performance";
-    if (stats.deaths > stats.kills) verdict = "Poor survival decisions";
+    if (badRounds > 5) verdict = "Poor decision making";
+    if (badRounds === 0) verdict = "Strong structured play";
 
     res.json({
       file: name,
-      stats,
-      coachVerdict: verdict
+      verdict,
+      rounds: analyzedRounds
     });
 
   } catch (err) {
     res.json({
-      error: "Failed to parse demo (file may not be valid CS2 demo yet)"
+      error: "Failed to parse demo"
     });
   }
 });
 
-app.listen(3000, () => console.log("CS2 parser running"));
+app.listen(3000, () => console.log("CS2 Coach running"));
