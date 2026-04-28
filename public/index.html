@@ -1,67 +1,85 @@
-<!DOCTYPE html>
-<html lang="pt">
-<head>
-    <meta charset="UTF-8">
-    <title>Nexus.gg | Dashboard</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body { background: #05070a; color: white; font-family: sans-serif; }
-        .glass { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.05); }
-    </style>
-</head>
-<body class="p-10">
-    <div class="max-w-5xl mx-auto">
-        <h1 class="text-4xl font-black text-cyan-500 mb-10 italic">NEXUS.GG</h1>
-        
-        <div class="glass p-10 rounded-3xl text-center border-2 border-dashed border-cyan-500/30">
-            <h2 class="text-xl font-bold mb-4">Upload de Nova Demo</h2>
-            <input type="file" id="demoFile" class="hidden" accept=".dem" onchange="upload()">
-            <label for="demoFile" id="uploadBtn" class="bg-cyan-500 text-black px-8 py-3 rounded-full font-bold cursor-pointer hover:bg-cyan-400 transition">
-                Selecionar Ficheiro .dem
-            </label>
-            <p id="status" class="mt-4 text-sm text-gray-400"></p>
-        </div>
+<div class="glass p-10 rounded-3xl text-center border-2 border-dashed border-cyan-500/30">
+    <h2 class="text-xl font-bold mb-4">Upload de Nova Demo</h2>
+    
+    <input type="file" id="demoFile" class="hidden" accept=".dem" onchange="upload()">
+    
+    <label for="demoFile" id="uploadBtn" class="bg-cyan-500 text-black px-8 py-3 rounded-full font-bold cursor-pointer hover:bg-cyan-400 transition inline-block">
+        Selecionar Ficheiro .dem
+    </label>
 
-        <div class="mt-12">
-            <h3 class="text-xl font-bold mb-6">Suas Análises</h3>
-            <div id="demoList" class="grid gap-4"></div>
+    <div id="progressContainer" class="mt-8 hidden">
+        <div class="w-full bg-gray-800 rounded-full h-4 overflow-hidden">
+            <div id="progressBar" class="bg-cyan-500 h-full w-0 transition-all duration-300"></div>
         </div>
+        <p id="progressText" class="text-xs text-cyan-400 mt-2 font-mono">0%</p>
     </div>
 
-    <script>
-        async function upload() {
-            const file = document.getElementById('demoFile').files[0];
-            const status = document.getElementById('status');
-            const btn = document.getElementById('uploadBtn');
+    <p id="status" class="mt-4 text-sm text-gray-400"></p>
+</div>
 
-            const formData = new FormData();
-            formData.append('demo', file);
+<script>
+async function upload() {
+    const fileInput = document.getElementById('demoFile');
+    const file = fileInput.files[0];
+    const status = document.getElementById('status');
+    const btn = document.getElementById('uploadBtn');
+    const progressContainer = document.getElementById('progressContainer');
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
 
-            status.innerText = "A carregar... (Demos grandes podem demorar)";
-            btn.style.opacity = "0.5";
+    if (!file) return;
 
-            const res = await fetch('/upload', { method: 'POST', body: formData });
-            if(res.ok) {
-                status.innerText = "✅ Sucesso!";
-                loadDemos();
-            } else {
-                status.innerText = "❌ Erro no upload.";
-            }
-            btn.style.opacity = "1";
+    const formData = new FormData();
+    formData.append('demo', file);
+
+    // Reset de interface
+    status.innerText = "A iniciar upload...";
+    btn.style.display = "none";
+    progressContainer.classList.remove('hidden');
+    
+    // Criar o pedido de upload com monitorização
+    const xhr = new XMLHttpRequest();
+
+    // Evento que mede o progresso
+    xhr.upload.addEventListener("progress", (e) => {
+        if (e.lengthComputable) {
+            const percent = Math.round((e.loaded / e.total) * 100);
+            progressBar.style.width = percent + "%";
+            progressText.innerText = `A CARREGAR: ${percent}% (${(e.loaded / 1024 / 1024).toFixed(1)}MB de ${(e.total / 1024 / 1024).toFixed(1)}MB)`;
         }
+    });
 
-        async function loadDemos() {
-            const res = await fetch('/demos');
-            const demos = await res.json();
-            const list = document.getElementById('demoList');
-            list.innerHTML = demos.map(d => `
-                <div class="glass p-5 rounded-2xl flex justify-between items-center">
-                    <span>${d}</span>
-                    <a href="demo.html?file=${d}" class="bg-white/10 px-4 py-2 rounded-lg text-xs font-bold hover:bg-cyan-500 hover:text-black transition">ANALISAR</a>
-                </div>
-            `).join('');
+    // Evento quando termina
+    xhr.onload = function() {
+        if (xhr.status === 200) {
+            status.innerText = "✅ Upload Concluído! A processar demo...";
+            progressBar.classList.replace('bg-cyan-500', 'bg-green-500');
+            setTimeout(loadDemos, 1000);
+        } else {
+            status.innerText = "❌ Erro no upload: " + xhr.statusText;
+            btn.style.display = "inline-block";
         }
-        loadDemos();
-    </script>
-</body>
-</html>
+    };
+
+    xhr.onerror = function() {
+        status.innerText = "❌ Erro de conexão.";
+        btn.style.display = "inline-block";
+    };
+
+    xhr.open("POST", "/upload");
+    xhr.send(formData);
+}
+
+async function loadDemos() {
+    const res = await fetch('/demos');
+    const demos = await res.json();
+    const list = document.getElementById('demoList');
+    list.innerHTML = demos.map(d => `
+        <div class="glass p-5 rounded-2xl flex justify-between items-center group hover:border-cyan-500/50 transition">
+            <span class="text-sm font-medium">${d}</span>
+            <a href="demo.html?file=${d}" class="bg-white/10 px-4 py-2 rounded-lg text-xs font-bold hover:bg-cyan-500 hover:text-black transition">ANALISAR</a>
+        </div>
+    `).join('');
+}
+loadDemos();
+</script>
