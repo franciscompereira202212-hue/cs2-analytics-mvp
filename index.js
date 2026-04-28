@@ -1,6 +1,7 @@
 const express = require("express");
 const fileUpload = require("express-fileupload");
 const fs = require("fs");
+const DemoFile = require("demofile");
 
 const app = express();
 
@@ -12,7 +13,7 @@ if (!fs.existsSync("./uploads")) {
 }
 
 /* =========================
-   UPLOAD
+   UPLOAD DEMO
 ========================= */
 app.post("/upload", async (req, res) => {
   if (!req.files || !req.files.demo) {
@@ -20,7 +21,9 @@ app.post("/upload", async (req, res) => {
   }
 
   const file = req.files.demo;
-  await file.mv("./uploads/" + file.name);
+  const path = "./uploads/" + file.name;
+
+  await file.mv(path);
 
   res.send("Upload feito!");
 });
@@ -34,60 +37,70 @@ app.get("/demos", (req, res) => {
 });
 
 /* =========================
-   🔥 COACH ENGINE v1
+   🔥 REAL DEMO PARSER
 ========================= */
-function analyzeRound(round) {
-  const mistakes = [];
+function parseDemo(filePath) {
+  return new Promise((resolve, reject) => {
+    const demo = new DemoFile.DemoFile();
 
-  if (!round.hasUtility) mistakes.push("No utility used in execute");
-  if (round.rotateTime > 6) mistakes.push("Late rotation");
-  if (!round.tradedKills) mistakes.push("No trade setups");
-  if (round.peeksDry) mistakes.push("Dry peeks without info");
-  if (round.weakPostPlant) mistakes.push("Poor post-plant positioning");
+    const stats = {
+      rounds: 0,
+      kills: 0,
+      deaths: 0,
+      assists: 0
+    };
 
-  let rating = "OK";
-  if (mistakes.length >= 3) rating = "BAD";
-  if (mistakes.length === 0) rating = "GOOD";
+    demo.on("matchStart", () => {
+      stats.rounds = 0;
+    });
 
-  return {
-    round: round.id,
-    rating,
-    mistakes
-  };
+    demo.on("roundEnd", () => {
+      stats.rounds++;
+    });
+
+    demo.on("playerDeath", (e) => {
+      stats.deaths++;
+    });
+
+    demo.on("playerKilled", (e) => {
+      stats.kills++;
+    });
+
+    const stream = fs.createReadStream(filePath);
+
+    demo.parseStream(stream)
+      .on("end", () => resolve(stats))
+      .on("error", reject);
+  });
 }
 
 /* =========================
-   DEMO ANALYSIS (SIMULATED)
+   DEMO ANALYSIS REAL
 ========================= */
-app.get("/demo/:name", (req, res) => {
+app.get("/demo/:name", async (req, res) => {
   const name = req.params.name;
+  const path = "./uploads/" + name;
 
-  // 🔥 simulação de rounds (substitui isto por parser real depois)
-  const rounds = [];
+  try {
+    const stats = await parseDemo(path);
 
-  for (let i = 1; i <= 12; i++) {
-    rounds.push(analyzeRound({
-      id: i,
-      hasUtility: Math.random() > 0.4,
-      rotateTime: Math.floor(Math.random() * 10),
-      tradedKills: Math.random() > 0.5,
-      peeksDry: Math.random() > 0.6,
-      weakPostPlant: Math.random() > 0.5
-    }));
+    // coach layer em cima de dados reais
+    let verdict = "Balanced game";
+
+    if (stats.kills > stats.deaths + 10) verdict = "Strong fragging performance";
+    if (stats.deaths > stats.kills) verdict = "Poor survival decisions";
+
+    res.json({
+      file: name,
+      stats,
+      coachVerdict: verdict
+    });
+
+  } catch (err) {
+    res.json({
+      error: "Failed to parse demo (file may not be valid CS2 demo yet)"
+    });
   }
-
-  // resumo coach
-  const totalMistakes = rounds.reduce((acc, r) => acc + r.mistakes.length, 0);
-
-  let coachVerdict = "Balanced game";
-  if (totalMistakes > 20) coachVerdict = "Poor decision making";
-  if (totalMistakes < 10) coachVerdict = "Strong structured play";
-
-  res.json({
-    file: name,
-    coachVerdict,
-    rounds
-  });
 });
 
-app.listen(3000, () => console.log("Server running"));
+app.listen(3000, () => console.log("CS2 parser running"));
