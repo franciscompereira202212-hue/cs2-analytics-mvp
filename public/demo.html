@@ -1,131 +1,61 @@
 <!DOCTYPE html>
-<html lang="pt">
+<html>
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus.gg | Ghost Coaching & AI Analysis</title>
+    <title>Visualizador Nexus</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lucide-static@0.321.0/font/lucide.min.css">
     <style>
-        body { background: #05070a; color: #e5e7eb; }
-        .glass { background: rgba(17, 24, 39, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); }
-        .ghost-pulse { animation: pulse 2s infinite; }
-        @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 0.8; } 100% { opacity: 0.4; } }
-        .minimap { background-image: url('https://raw.githubusercontent.com/pwa-csgo/maps/master/mirage/radar.png'); background-size: cover; border-radius: 8px; position: relative; }
-        .player-dot { width: 12px; height: 12px; border-radius: 50%; position: absolute; transform: translate(-50%, -50%); transition: all 0.5s ease; }
+        #map-bg { 
+            width: 700px; height: 700px; 
+            background-size: contain; background-repeat: no-repeat;
+            position: relative; border: 2px solid #22d3ee; border-radius: 15px;
+        }
+        .dot { position: absolute; width: 10px; height: 10px; border-radius: 50%; transform: translate(-50%, -50%); border: 1px solid white; }
+        .ct { background: #3b82f6; }
+        .t { background: #ef4444; }
     </style>
 </head>
-<body class="p-4 md:p-8">
-
-    <div class="flex items-center justify-between mb-8">
-        <a href="/" class="text-cyan-400 hover:text-cyan-300 flex items-center gap-2 transition">
-            <i class="lucide-chevron-left"></i> Voltar ao Dashboard
-        </a>
-        <div class="text-right">
-            <h1 class="text-2xl font-black italic tracking-tighter">NEXUS<span class="text-cyan-500">.GG</span></h1>
-            <p class="text-xs text-gray-500 uppercase tracking-widest">AI Demo Reviewer v2.0</p>
-        </div>
+<body class="bg-[#05070a] text-white p-10 flex gap-10">
+    <div>
+        <div id="map-bg"></div>
+        <div class="mt-4 flex gap-4" id="round-nav"></div>
     </div>
-
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        <div class="lg:col-span-8 space-y-6">
-            <div class="glass rounded-2xl overflow-hidden p-4">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="font-bold flex items-center gap-2">
-                        <i class="lucide-ghost text-cyan-400"></i> Ghost Coach Projection
-                    </h3>
-                    <span class="text-xs bg-cyan-500/20 text-cyan-400 px-2 py-1 rounded border border-cyan-500/30">Syncing with s1mple (Mirage/CT)</span>
-                </div>
-                
-                <div id="map-container" class="minimap w-full aspect-square md:h-[500px] border border-white/5">
-                    <div id="user-dot" class="player-dot bg-white border-2 border-black z-20 shadow-[0_0_10px_white]"></div>
-                    <div id="ghost-dot" class="player-dot bg-cyan-400 ghost-pulse z-10 shadow-[0_0_15px_#22d3ee]"></div>
-                </div>
-
-                <div class="mt-4 flex gap-4 items-center glass p-3 rounded-xl">
-                    <button id="playBtn" class="bg-cyan-500 hover:bg-cyan-400 p-2 rounded-full text-black transition">
-                        <i class="lucide-play"></i>
-                    </button>
-                    <div class="text-xs">
-                        <p class="text-gray-400">Dica da IA:</p>
-                        <p id="ai-tip" class="font-medium">Clica em Play para ver a rota ideal do Ghost Coach.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="lg:col-span-4 space-y-6">
-            
-            <div class="glass rounded-2xl p-5 border-t-2 border-cyan-500">
-                <h3 class="text-sm font-bold uppercase mb-4 flex items-center gap-2">
-                    <i class="lucide-mic text-cyan-400"></i> Voice Comms AI
-                </h3>
-                <div id="voice-analysis" class="space-y-3">
-                    <div class="p-3 bg-white/5 rounded-lg border border-white/5 italic text-sm">
-                        "As tuas calls no Mid foram rápidas, mas faltou info sobre a Utility."
-                    </div>
-                    <div class="flex justify-between text-xs text-gray-400">
-                        <span>Clareza: 85%</span>
-                        <span>Tempo de Call: 1.2s (Ótimo)</span>
-                    </div>
-                </div>
-            </div>
-
-            <div id="rounds-list" class="space-y-4 max-h-[600px] overflow-y-auto pr-2">
-                </div>
+    <div class="flex-1">
+        <h2 id="title" class="text-2xl font-bold text-cyan-400 mb-4 font-mono">MAPA: ---</h2>
+        <div class="bg-gray-900 p-6 rounded-2xl border border-white/5">
+            <h3 class="text-sm text-gray-500 uppercase mb-2">Verdict do Ghost Coach</h3>
+            <p id="verdict" class="text-lg italic">A processar dados...</p>
+            <div id="tips" class="mt-4 space-y-2"></div>
         </div>
     </div>
 
     <script>
-        const params = new URLSearchParams(window.location.search);
-        const fileName = params.get("file");
-
-        async function loadAnalysis() {
-            const res = await fetch("/demo/" + fileName);
+        const file = new URLSearchParams(window.location.search).get('file');
+        
+        async function start() {
+            const res = await fetch(`/demo/${file}`);
             const data = await res.json();
             
-            const list = document.getElementById("rounds-list");
-            list.innerHTML = `<h2 class="text-xl font-bold mb-4">${data.verdict}</h2>`;
+            document.getElementById('title').innerText = `MAPA: ${data.map.toUpperCase()}`;
+            
+            // Tenta carregar o radar automaticamente (URL externa de exemplo)
+            document.getElementById('map-bg').style.backgroundImage = `url('https://raw.githubusercontent.com/p_p_p/cs-maps/master/${data.map}.png')`;
 
-            data.rounds.forEach(r => {
-                const borderClass = r.rating === "BAD" ? "border-red-500/50" : r.rating === "GOOD" ? "border-green-500/50" : "border-orange-500/50";
-                const bgClass = r.rating === "BAD" ? "bg-red-500/5" : r.rating === "GOOD" ? "bg-green-500/5" : "bg-orange-500/5";
-                
-                list.innerHTML += `
-                    <div class="glass p-4 rounded-xl border-l-4 ${borderClass} ${bgClass} transition hover:scale-[1.02] cursor-pointer" 
-                         onclick="simulateRound('${r.rating}')">
-                        <div class="flex justify-between mb-2">
-                            <span class="font-bold">Round ${r.id}</span>
-                            <span class="text-xs font-mono uppercase">${r.rating}</span>
-                        </div>
-                        <ul class="text-xs text-gray-400 space-y-1">
-                            ${(r.issues || []).map(i => `<li>• ${i}</li>`).join("")}
-                        </ul>
-                    </div>
-                `;
+            const round = data.rounds[0]; // Mostra o primeiro round
+            document.getElementById('verdict').innerText = round.rating === "GOOD" ? "✅ Bom Posicionamento" : "⚠️ Erros Detetados";
+            document.getElementById('tips').innerHTML = round.suggestions.map(s => `<p class="text-sm opacity-80">• ${s}</p>`).join('');
+
+            // Desenha os bonecos (ajuste de escala simples)
+            const map = document.getElementById('map-bg');
+            round.mapData.forEach(p => {
+                const dot = document.createElement('div');
+                dot.className = `dot ${p.side === 3 ? 'ct' : 't'}`;
+                // Fórmula de conversão simplificada
+                dot.style.left = `${((p.x + 3000) / 6000) * 100}%`;
+                dot.style.top = `${((3000 - p.y) / 6000) * 100}%`;
+                map.appendChild(dot);
             });
         }
-
-        // Simulação do Ghost Coach no Minimapa
-        function simulateRound(rating) {
-            const user = document.getElementById("user-dot");
-            const ghost = document.getElementById("ghost-dot");
-            const tip = document.getElementById("ai-tip");
-
-            if(rating === "BAD") {
-                // Simula erro: Utilizador morre no meio, Fantasma faz o move certo
-                user.style.left = "50%"; user.style.top = "50%";
-                ghost.style.left = "40%"; ghost.style.top = "20%"; // Move-se para o cover
-                tip.innerText = "O Ghost Coach sugere que faças hold do ângulo de 'Jungle' em vez de dar peek aberto.";
-            } else {
-                user.style.left = "40%"; user.style.top = "22%";
-                ghost.style.left = "40%"; ghost.style.top = "20%";
-                tip.innerText = "Excelente! O teu posicionamento foi 98% idêntico ao do Pro Player.";
-            }
-        }
-
-        loadAnalysis();
+        start();
     </script>
 </body>
 </html>
