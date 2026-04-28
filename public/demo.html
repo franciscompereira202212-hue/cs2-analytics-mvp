@@ -1,61 +1,139 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt">
 <head>
-    <title>Visualizador Nexus</title>
+    <meta charset="UTF-8">
+    <title>Nexus AI | Ghost Coach Viewer</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lucide-static@0.321.0/font/lucide.min.css">
     <style>
-        #map-bg { 
+        body { background: #05070a; color: white; font-family: 'Inter', sans-serif; }
+        .glass { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.05); }
+        #map-container { 
+            position: relative; 
             width: 700px; height: 700px; 
             background-size: contain; background-repeat: no-repeat;
-            position: relative; border: 2px solid #22d3ee; border-radius: 15px;
+            border: 2px solid #22d3ee; border-radius: 20px; overflow: hidden;
         }
-        .dot { position: absolute; width: 10px; height: 10px; border-radius: 50%; transform: translate(-50%, -50%); border: 1px solid white; }
-        .ct { background: #3b82f6; }
-        .t { background: #ef4444; }
+        .dot { position: absolute; width: 12px; height: 12px; border-radius: 50%; transform: translate(-50%, -50%); border: 2px solid white; transition: all 0.3s ease; }
+        .ct { background: #3b82f6; box-shadow: 0 0 10px #3b82f6; }
+        .t { background: #ef4444; box-shadow: 0 0 10px #ef4444; }
+        
+        /* Animação da Barra de Processamento */
+        .scan-line {
+            width: 100%; height: 2px; background: #22d3ee;
+            position: absolute; top: 0; left: 0;
+            box-shadow: 0 0 15px #22d3ee;
+            animation: scan 2s infinite linear;
+        }
+        @keyframes scan { 0% { top: 0%; } 100% { top: 100%; } }
     </style>
 </head>
-<body class="bg-[#05070a] text-white p-10 flex gap-10">
-    <div>
-        <div id="map-bg"></div>
-        <div class="mt-4 flex gap-4" id="round-nav"></div>
-    </div>
-    <div class="flex-1">
-        <h2 id="title" class="text-2xl font-bold text-cyan-400 mb-4 font-mono">MAPA: ---</h2>
-        <div class="bg-gray-900 p-6 rounded-2xl border border-white/5">
-            <h3 class="text-sm text-gray-500 uppercase mb-2">Verdict do Ghost Coach</h3>
-            <p id="verdict" class="text-lg italic">A processar dados...</p>
-            <div id="tips" class="mt-4 space-y-2"></div>
+<body class="p-10">
+    <div class="max-w-6xl mx-auto">
+        <header class="flex justify-between items-center mb-8">
+            <h1 id="demo-title" class="text-2xl font-black italic text-cyan-500 uppercase tracking-tighter">Análise de Performance</h1>
+            <a href="index.html" class="text-xs bg-white/5 hover:bg-white/10 px-4 py-2 rounded-xl border border-white/10 transition">Sair da Análise</a>
+        </header>
+        
+        <div class="flex gap-10">
+            <div id="map-container" class="glass">
+                <div id="loading-overlay" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#05070a]/90 p-10">
+                    <i class="lucide-cpu text-cyan-400 w-12 h-12 animate-pulse mb-4"></i>
+                    <h3 class="text-xl font-bold mb-2">IA A PROCESSAR DADOS</h3>
+                    <p class="text-gray-400 text-sm mb-6 text-center">Estamos a ler os ticks da demo para calcular o teu posicionamento...</p>
+                    
+                    <div class="w-full max-w-sm bg-white/5 h-3 rounded-full overflow-hidden border border-white/10">
+                        <div id="analysis-bar" class="bg-cyan-500 h-full w-0 transition-all duration-500 shadow-[0_0_15px_#22d3ee]"></div>
+                    </div>
+                    <span id="analysis-percent" class="mt-2 text-xs font-mono text-cyan-500">0%</span>
+                </div>
+                
+                <div id="scan-line" class="scan-line hidden"></div>
+                <div id="players-layer"></div>
+            </div>
+
+            <div class="flex-1 space-y-6">
+                <div class="glass p-6 rounded-3xl border-l-4 border-cyan-500">
+                    <h4 class="text-[10px] font-bold text-cyan-500 uppercase tracking-[0.2em] mb-2">Verdict do Ghost Coach</h4>
+                    <p id="verdict" class="text-lg italic text-gray-300 italic font-serif">Aguardando processamento...</p>
+                </div>
+
+                <div id="tips-container" class="space-y-4">
+                    </div>
+            </div>
         </div>
     </div>
 
     <script>
         const file = new URLSearchParams(window.location.search).get('file');
-        
-        async function start() {
-            const res = await fetch(`/demo/${file}`);
-            const data = await res.json();
-            
-            document.getElementById('title').innerText = `MAPA: ${data.map.toUpperCase()}`;
-            
-            // Tenta carregar o radar automaticamente (URL externa de exemplo)
-            document.getElementById('map-bg').style.backgroundImage = `url('https://raw.githubusercontent.com/p_p_p/cs-maps/master/${data.map}.png')`;
+        const progressBar = document.getElementById('analysis-bar');
+        const progressText = document.getElementById('analysis-percent');
+        const overlay = document.getElementById('loading-overlay');
 
-            const round = data.rounds[0]; // Mostra o primeiro round
-            document.getElementById('verdict').innerText = round.rating === "GOOD" ? "✅ Bom Posicionamento" : "⚠️ Erros Detetados";
-            document.getElementById('tips').innerHTML = round.suggestions.map(s => `<p class="text-sm opacity-80">• ${s}</p>`).join('');
+        async function analyze() {
+            if(!file) return;
+            document.getElementById('demo-title').innerText = `Nexus AI | ${file}`;
 
-            // Desenha os bonecos (ajuste de escala simples)
-            const map = document.getElementById('map-bg');
-            round.mapData.forEach(p => {
-                const dot = document.createElement('div');
-                dot.className = `dot ${p.side === 3 ? 'ct' : 't'}`;
-                // Fórmula de conversão simplificada
-                dot.style.left = `${((p.x + 3000) / 6000) * 100}%`;
-                dot.style.top = `${((3000 - p.y) / 6000) * 100}%`;
-                map.appendChild(dot);
-            });
+            // Simulação de progresso enquanto o servidor trabalha
+            // O servidor demora a responder ao fetch, então vamos animar a barra
+            let prog = 0;
+            const interval = setInterval(() => {
+                if(prog < 95) {
+                    prog += Math.random() * 5;
+                    progressBar.style.width = prog + "%";
+                    progressText.innerText = Math.round(prog) + "%";
+                }
+            }, 400);
+
+            try {
+                const res = await fetch(`/demo/${file}`);
+                const data = await res.json();
+                
+                clearInterval(interval);
+                progressBar.style.width = "100%";
+                progressText.innerText = "100%";
+
+                setTimeout(() => {
+                    overlay.style.display = "none";
+                    document.getElementById('scan-line').classList.remove('hidden');
+                    renderAnalysis(data);
+                }, 800);
+
+            } catch (err) {
+                console.error(err);
+                alert("Erro ao analisar a demo.");
+            }
         }
-        start();
+
+        function renderAnalysis(data) {
+            // 1. Carregar o Radar Correto
+            const mapContainer = document.getElementById('map-container');
+            mapContainer.style.backgroundImage = `url('https://raw.githubusercontent.com/p_p_p/cs-maps/master/${data.map}.png')`;
+
+            // 2. Mostrar Verdict e Dicas (do primeiro round como exemplo)
+            const round = data.rounds[0];
+            document.getElementById('verdict').innerText = round.rating === "GOOD" ? 
+                "Excelente controle de mapa e trade kill potencial." : 
+                "Detetámos falhas no suporte e espaçamento entre jogadores.";
+
+            const tips = document.getElementById('tips-container');
+            tips.innerHTML = round.suggestions.map(s => `
+                <div class="glass p-5 rounded-2xl border border-white/5 flex gap-4 items-start">
+                    <i class="lucide-info text-cyan-400 w-5 mt-1"></i>
+                    <p class="text-sm text-gray-400 leading-relaxed">${s}</p>
+                </div>
+            `).join('');
+
+            // 3. Desenhar Jogadores
+            const layer = document.getElementById('players-layer');
+            layer.innerHTML = round.mapData.map(p => `
+                <div class="dot ${p.side === 3 ? 'ct' : 't'}" 
+                     style="left: ${((p.x + 2500) / 5000) * 100}%; top: ${((2500 - p.y) / 5000) * 100}%">
+                </div>
+            `).join('');
+        }
+
+        analyze();
     </script>
 </body>
 </html>
