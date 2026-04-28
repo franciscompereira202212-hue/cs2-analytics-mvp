@@ -7,6 +7,9 @@
 <input type="file" id="file">
 <button onclick="upload()">Upload</button>
 
+<h3>Demos:</h3>
+<ul id="list"></ul>
+
 <script>
 async function upload() {
   const file = document.getElementById("file").files[0];
@@ -19,8 +22,26 @@ async function upload() {
     body: data
   });
 
-  alert("Upload feito!");
+  loadDemos();
 }
+
+// 🔥 buscar demos
+async function loadDemos() {
+  const res = await fetch("/demos");
+  const files = await res.json();
+
+  const list = document.getElementById("list");
+  list.innerHTML = "";
+
+  files.forEach(f => {
+    const li = document.createElement("li");
+    li.textContent = f;
+    list.appendChild(li);
+  });
+}
+
+// carregar ao abrir
+loadDemos();
 </script>
 
 </body>
