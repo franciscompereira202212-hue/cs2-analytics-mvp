@@ -6,121 +6,124 @@ const { analyzeRound } = require("./coachEngine");
 
 const app = express();
 
-app.use(fileUpload());
+// Aumentar o limite para aguentar demos pesadas de CS2
+app.use(fileUpload({
+    limits: { fileSize: 200 * 1024 * 1024 }, // 200MB
+    useTempFiles: true,
+    tempFileDir: '/tmp/',
+    debug: true // Ativa logs no console do Replit para vermos o progresso
+}));
+
 app.use(express.static("public"));
 
-if (!fs.existsSync("./uploads")) fs.mkdirSync("./uploads");
+// Garantir que a pasta de uploads existe
+const UPLOAD_DIR = "./uploads";
+if (!fs.existsSync(UPLOAD_DIR)) {
+  fs.mkdirSync(UPLOAD_DIR);
+}
 
-app.post("/upload", async (req, res) => {
-  if (!req.files || !req.files.demo) return res.status(400).send("No file uploaded");
+/* =========================
+   UPLOAD COM DEBUG
+========================= */
+app.post("/upload", (req, res) => {
+  console.log("LOG: Recebido pedido de upload...");
+
+  if (!req.files || !req.files.demo) {
+    console.error("LOG: Nenhum ficheiro encontrado no upload.");
+    return res.status(400).send("Nenhum ficheiro selecionado.");
+  }
+
   const file = req.files.demo;
-  await file.mv("./uploads/" + file.name);
-  res.send("Upload feito!");
+  const path = `${UPLOAD_DIR}/${file.name}`;
+
+  file.mv(path, (err) => {
+    if (err) {
+      console.error("LOG: Erro ao mover ficheiro:", err);
+      return res.status(500).send(err);
+    }
+    console.log(`LOG: Upload concluído com sucesso: ${file.name}`);
+    res.send("Upload feito!");
+  });
 });
 
+/* =========================
+   LISTAR DEMOS
+========================= */
 app.get("/demos", (req, res) => {
-  res.json(fs.readdirSync("./uploads"));
+  try {
+    const files = fs.readdirSync(UPLOAD_DIR);
+    res.json(files);
+  } catch (err) {
+    res.status(500).json([]);
+  }
 });
 
-/* =================================================
-   PARSER PRO (Captura de Posições para Ghost Coach)
-   ================================================= */
+/* =========================
+   PARSER REAL (Captura de Posições)
+========================= */
 function parseDemo(filePath) {
-  return new Promise((resolve) => {
-    const buffer = fs.readFileSync(filePath);
-    const demo = new DemoFile.DemoFile();
-    const rounds = [];
-    
-    // Simulação de base de dados Pro (exemplo simplificado)
-    const proPositions = {
-      "CT": { x: -1200, y: 500 }, // Posição ideal s1mple
-      "T": { x: 1500, y: -200 }
-    };
+  return new Promise((resolve, reject) => {
+    try {
+      const buffer = fs.readFileSync(filePath);
+      const demo = new DemoFile.DemoFile();
+      const rounds = [];
 
-    demo.gameEvents.on("round_start", () => {
-      const currentRound = demo.gameRules.roundsPlayed + 1;
-      rounds[currentRound] = {
-        id: currentRound,
-        positions: [],
-        voiceCalls: [],
-        stats: { utility: 0, trades: 0 }
-      };
-    });
+      demo.gameEvents.on("round_start", () => {
+        const currentRound = demo.gameRules.roundsPlayed + 1;
+        rounds[currentRound] = {
+          id: currentRound,
+          positions: [],
+          utility: false
+        };
+      });
 
-    // Captura posições a cada tick para o Ghost Coach
-    demo.on("tick", () => {
-      const currentRound = demo.gameRules.roundsPlayed + 1;
-      if (!rounds[currentRound]) return;
+      // Captura posição a cada segundo (64 ticks)
+      demo.on("tick", () => {
+        const currentRound = demo.gameRules.roundsPlayed + 1;
+        if (rounds[currentRound] && demo.currentTick % 64 === 0) {
+          demo.players.forEach(p => {
+            if (p && p.isAlive) {
+              rounds[currentRound].positions.push({
+                x: p.position.x,
+                y: p.position.y,
+                side: p.side
+              });
+            }
+          });
+        }
+      });
 
-      // Só guardamos posição a cada 64 ticks para não sobrecarregar o JSON
-      if (demo.currentTick % 64 === 0) {
-        demo.players.forEach(p => {
-          if (p && p.isAlive) {
-            rounds[currentRound].positions.push({
-              player: p.name,
-              side: p.side,
-              x: p.position.x,
-              y: p.position.y,
-              // Aqui calculamos a distância para o "fantasma" Pro
-              distToPro: Math.hypot(p.position.x - proPositions[p.teamNumber === 3 ? "CT" : "T"].x, 
-                                    p.position.y - proPositions[p.teamNumber === 3 ? "CT" : "T"].y)
-            });
-          }
-        });
-      }
-    });
-
-    // Voice AI (Simulado através do chat ou logs de rádio)
-    demo.gameEvents.on("player_chat", (e) => {
-      const currentRound = demo.gameRules.roundsPlayed + 1;
-      if (rounds[currentRound]) {
-        rounds[currentRound].voiceCalls.push({ player: e.entity.name, msg: e.text });
-      }
-    });
-
-    demo.on("end", () => resolve(rounds.filter(Boolean)));
-    demo.parse(buffer);
+      demo.on("end", () => resolve(rounds.filter(Boolean)));
+      demo.parse(buffer);
+    } catch (e) {
+      reject(e);
+    }
   });
 }
 
 /* =========================
-   ANALYSIS ENDPOINT
+   ANÁLISE FINAL
 ========================= */
 app.get("/demo/:name", async (req, res) => {
-  const path = "./uploads/" + req.params.name;
-  
-  try {
-    const rawRounds = await parseDemo(path);
+  const name = req.params.name;
+  const path = `${UPLOAD_DIR}/${name}`;
 
-    const analyzedRounds = rawRounds.map(r => {
-      // Usamos as posições reais para dar o veredito
-      const avgDist = r.positions.reduce((acc, p) => acc + p.distToPro, 0) / (r.positions.length || 1);
-      
-      // Lógica de Ghost Coaching: Se estiver longe do "Pro", o rating baixa
-      const ghostRating = avgDist < 500 ? "GOOD" : avgDist < 1000 ? "OK" : "BAD";
-      
-      const analysis = analyzeRound({ ...r, rating: ghostRating });
-      
-      return {
-        ...r,
-        rating: ghostRating,
-        verdict: analysis.verdict,
-        issues: analysis.issues,
-        // Mandamos apenas uma amostra de posições para o frontend não crashar
-        mapData: r.positions.slice(-10) 
-      };
-    });
+  if (!fs.existsSync(path)) return res.status(404).send("Ficheiro não encontrado");
+
+  try {
+    const rounds = await parseDemo(path);
+    const analyzedRounds = rounds.map(r => analyzeRound(r));
 
     res.json({
-      file: req.params.name,
-      verdict: analyzedRounds.filter(r => r.rating === "BAD").length > 3 ? "Necessita de Melhoria Tática" : "Performance Sólida",
+      file: name,
+      verdict: analyzedRounds.filter(r => r.rating === "BAD").length > 4 ? "Tática Fraca" : "Bom Jogo",
       rounds: analyzedRounds
     });
-
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Erro ao processar demo" });
+    console.error("LOG: Erro no parser:", err);
+    res.status(500).json({ error: "Falha ao processar demo" });
   }
 });
 
-app.listen(3000, () => console.log("Nexus AI Backend Running on Port 3000"));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`🚀 Nexus Server a correr na porta ${PORT}`));
