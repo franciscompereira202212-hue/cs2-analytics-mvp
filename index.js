@@ -1,68 +1,74 @@
+const fs = require("fs");
+
 async function parseDemo(filePath) {
     return new Promise((resolve, reject) => {
-        try {
-            const buffer = fs.readFileSync(filePath);
-            const demo = new DemoFile.DemoFile();
-            const rounds = [];
-            let mapName = "unknown";
+        // Criamos um stream de leitura em vez de ler o buffer todo
+        const stream = fs.createReadStream(filePath);
+        const demo = new DemoFile.DemoFile();
+        const rounds = [];
+        let mapName = "unknown";
 
-            demo.on("start", () => {
-                mapName = demo.header.mapName;
-            });
+        demo.on("start", () => {
+            mapName = demo.header.mapName;
+            console.log("Mapa detetado:", mapName);
+        });
 
-            demo.gameEvents.on("round_start", () => {
-                const currentRound = demo.gameRules.roundsPlayed + 1;
-                rounds[currentRound] = { id: currentRound, positions: [] };
-            });
+        demo.gameEvents.on("round_start", () => {
+            const currentRound = demo.gameRules.roundsPlayed + 1;
+            rounds[currentRound] = { id: currentRound, positions: [] };
+        });
 
-            // Analisar apenas a cada 256 ticks (reduz o uso de CPU/RAM drasticamente)
-            demo.on("tick", () => {
-                const currentRound = demo.gameRules.roundsPlayed + 1;
-                if (rounds[currentRound] && demo.currentTick % 256 === 0) {
-                    demo.players.forEach(p => {
-                        if (p && p.isAlive && p.position) {
-                            rounds[currentRound].positions.push({ 
-                                x: p.position.x, 
-                                y: p.position.y, 
-                                side: p.side 
-                            });
-                        }
-                    });
-                }
-            });
+        // Analisar apenas a cada 512 ticks (redução extrema de uso de recursos)
+        demo.on("tick", () => {
+            const currentRound = demo.gameRules.roundsPlayed + 1;
+            if (rounds[currentRound] && demo.currentTick % 512 === 0) {
+                demo.players.forEach(p => {
+                    if (p && p.isAlive && p.position) {
+                        rounds[currentRound].positions.push({ 
+                            x: p.position.x, 
+                            y: p.position.y, 
+                            side: p.side 
+                        });
+                    }
+                });
+            }
+        });
 
-            demo.on("end", () => {
-                resolve({ map: mapName, rounds: rounds.filter(Boolean) });
-            });
+        demo.on("end", () => {
+            console.log("Fim do parsing.");
+            resolve({ map: mapName, rounds: rounds.filter(Boolean) });
+        });
 
-            // Erro caso o parser falhe
-            demo.on("error", (err) => reject(err));
+        demo.on("error", (err) => {
+            console.error("Erro no parser:", err);
+            reject(err);
+        });
 
-            demo.parse(buffer);
-        } catch (e) {
-            reject(e);
-        }
+        // Iniciar o parsing através do stream
+        demo.parseStream(stream);
     });
 }
 
 app.get("/demo/:name", async (req, res) => {
-    // Aumentar o tempo limite de resposta para 5 minutos
-    req.setTimeout(300000); 
-    
     const name = req.params.name;
     const filePath = path.join(UPLOAD_DIR, name);
 
     if (!fs.existsSync(filePath)) return res.status(404).send("Ficheiro não encontrado");
 
     try {
-        console.log(`A iniciar análise da demo: ${name}`);
+        console.log(`--- ANALISANDO EM MODO STREAM: ${name} ---`);
         const data = await parseDemo(filePath);
-        const analyzed = data.rounds.map(r => analyzeRound(r));
         
-        console.log("Análise concluída com sucesso!");
-        res.json({ file: name, map: data.map, rounds: analyzed });
+        // Se a demo for muito grande, mandamos apenas os primeiros 15 rounds para não dar erro de resposta
+        const limitedRounds = data.rounds.slice(0, 15).map(r => analyzeRound(r));
+        
+        res.json({ 
+            file: name, 
+            map: data.map, 
+            rounds: limitedRounds 
+        });
     } catch (err) {
-        console.error("ERRO NO PARSER:", err);
-        res.status(500).json({ error: "O servidor não aguentou processar esta demo." });
+        console.error("CRASH NO SERVIDOR:", err);
+        res.status(500).json({ error: "A demo é demasiado pesada para o Replit Free." });
     }
 });
