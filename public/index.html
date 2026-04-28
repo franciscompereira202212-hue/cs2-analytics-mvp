@@ -1,85 +1,210 @@
-<div class="glass p-10 rounded-3xl text-center border-2 border-dashed border-cyan-500/30">
-    <h2 class="text-xl font-bold mb-4">Upload de Nova Demo</h2>
-    
-    <input type="file" id="demoFile" class="hidden" accept=".dem" onchange="upload()">
-    
-    <label for="demoFile" id="uploadBtn" class="bg-cyan-500 text-black px-8 py-3 rounded-full font-bold cursor-pointer hover:bg-cyan-400 transition inline-block">
-        Selecionar Ficheiro .dem
-    </label>
-
-    <div id="progressContainer" class="mt-8 hidden">
-        <div class="w-full bg-gray-800 rounded-full h-4 overflow-hidden">
-            <div id="progressBar" class="bg-cyan-500 h-full w-0 transition-all duration-300"></div>
-        </div>
-        <p id="progressText" class="text-xs text-cyan-400 mt-2 font-mono">0%</p>
-    </div>
-
-    <p id="status" class="mt-4 text-sm text-gray-400"></p>
-</div>
-
-<script>
-async function upload() {
-    const fileInput = document.getElementById('demoFile');
-    const file = fileInput.files[0];
-    const status = document.getElementById('status');
-    const btn = document.getElementById('uploadBtn');
-    const progressContainer = document.getElementById('progressContainer');
-    const progressBar = document.getElementById('progressBar');
-    const progressText = document.getElementById('progressText');
-
-    if (!file) return;
-
-    const formData = new FormData();
-    formData.append('demo', file);
-
-    // Reset de interface
-    status.innerText = "A iniciar upload...";
-    btn.style.display = "none";
-    progressContainer.classList.remove('hidden');
-    
-    // Criar o pedido de upload com monitorização
-    const xhr = new XMLHttpRequest();
-
-    // Evento que mede o progresso
-    xhr.upload.addEventListener("progress", (e) => {
-        if (e.lengthComputable) {
-            const percent = Math.round((e.loaded / e.total) * 100);
-            progressBar.style.width = percent + "%";
-            progressText.innerText = `A CARREGAR: ${percent}% (${(e.loaded / 1024 / 1024).toFixed(1)}MB de ${(e.total / 1024 / 1024).toFixed(1)}MB)`;
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus.gg | AI Ghost Coaching</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lucide-static@0.321.0/font/lucide.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            background: #020408; 
+            color: #e2e8f0; 
+            font-family: 'Inter', sans-serif;
+            background-image: radial-gradient(circle at 50% -20%, #1e293b 0%, #020408 80%);
         }
-    });
-
-    // Evento quando termina
-    xhr.onload = function() {
-        if (xhr.status === 200) {
-            status.innerText = "✅ Upload Concluído! A processar demo...";
-            progressBar.classList.replace('bg-cyan-500', 'bg-green-500');
-            setTimeout(loadDemos, 1000);
-        } else {
-            status.innerText = "❌ Erro no upload: " + xhr.statusText;
-            btn.style.display = "inline-block";
+        .glass { 
+            background: rgba(15, 23, 42, 0.6); 
+            backdrop-filter: blur(12px); 
+            border: 1px solid rgba(255, 255, 255, 0.05); 
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
         }
-    };
+        .neo-btn {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        .neo-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 20px rgba(34, 211, 238, 0.4);
+        }
+        .progress-glow {
+            box-shadow: 0 0 15px rgba(34, 211, 238, 0.5);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex">
 
-    xhr.onerror = function() {
-        status.innerText = "❌ Erro de conexão.";
-        btn.style.display = "inline-block";
-    };
-
-    xhr.open("POST", "/upload");
-    xhr.send(formData);
-}
-
-async function loadDemos() {
-    const res = await fetch('/demos');
-    const demos = await res.json();
-    const list = document.getElementById('demoList');
-    list.innerHTML = demos.map(d => `
-        <div class="glass p-5 rounded-2xl flex justify-between items-center group hover:border-cyan-500/50 transition">
-            <span class="text-sm font-medium">${d}</span>
-            <a href="demo.html?file=${d}" class="bg-white/10 px-4 py-2 rounded-lg text-xs font-bold hover:bg-cyan-500 hover:text-black transition">ANALISAR</a>
+    <aside class="w-72 glass border-r border-white/5 p-8 flex flex-col hidden lg:flex">
+        <div class="mb-12">
+            <h1 class="text-3xl font-black italic tracking-tighter text-cyan-500">NEXUS<span class="text-white text-sm not-italic ml-1 opacity-50">.GG</span></h1>
+            <p class="text-[10px] text-cyan-500/50 font-bold tracking-[0.2em] uppercase mt-1">AI Ghost Coaching</p>
         </div>
-    `).join('');
-}
-loadDemos();
-</script>
+        
+        <nav class="space-y-6 flex-1">
+            <div class="flex items-center gap-3 text-cyan-400 font-semibold cursor-pointer">
+                <i class="lucide-layout-dashboard w-5"></i> Dashboard
+            </div>
+            <div class="flex items-center gap-3 text-gray-500 hover:text-white transition cursor-pointer">
+                <i class="lucide-activity w-5"></i> Minhas Demos
+            </div>
+            <div class="flex items-center gap-3 text-gray-500 hover:text-white transition cursor-pointer">
+                <i class="lucide-target w-5"></i> Táticas
+            </div>
+        </nav>
+
+        <div class="glass p-4 rounded-2xl border border-cyan-500/20">
+            <p class="text-xs text-gray-400 mb-2">Plano Replit Free</p>
+            <div class="w-full bg-gray-800 h-1.5 rounded-full">
+                <div class="bg-cyan-500 w-1/3 h-full rounded-full"></div>
+            </div>
+        </div>
+    </aside>
+
+    <main class="flex-1 p-6 lg:p-12 overflow-y-auto">
+        
+        <header class="flex justify-between items-center mb-12">
+            <div>
+                <h2 class="text-3xl font-extrabold tracking-tight">Bem-vindo, <span class="text-cyan-400">Jogador</span></h2>
+                <p class="text-gray-400 text-sm mt-1">Carrega as tuas demos para análise tática imediata.</p>
+            </div>
+            <div class="flex gap-4">
+                <div class="glass w-12 h-12 rounded-full flex items-center justify-center border border-white/10">
+                    <i class="lucide-bell w-5 text-gray-400"></i>
+                </div>
+                <div class="w-12 h-12 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 p-0.5">
+                    <div class="w-full h-full rounded-full bg-[#020408] flex items-center justify-center">
+                        <i class="lucide-user w-5"></i>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <section class="mb-12">
+            <div class="glass p-12 rounded-[2.5rem] border-2 border-dashed border-cyan-500/20 text-center neo-btn">
+                <div class="bg-cyan-500/10 w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                    <i class="lucide-upload-cloud text-cyan-400 w-10 h-10"></i>
+                </div>
+                <h3 class="text-2xl font-bold mb-2">Analisar Nova Partida</h3>
+                <p class="text-gray-400 mb-8 max-w-sm mx-auto">Arrasta o ficheiro .dem ou clica abaixo. Suportamos demos de CS2 até 500MB.</p>
+                
+                <input type="file" id="demoFile" class="hidden" accept=".dem" onchange="upload()">
+                
+                <label for="demoFile" id="uploadBtn" class="bg-cyan-500 hover:bg-cyan-400 text-black px-12 py-4 rounded-2xl font-black cursor-pointer transition-all inline-block shadow-lg shadow-cyan-500/20">
+                    SELECIONAR DEMO
+                </label>
+
+                <div id="progressContainer" class="mt-8 hidden max-w-md mx-auto">
+                    <div class="flex justify-between text-xs mb-2 font-bold font-mono">
+                        <span class="text-cyan-400" id="progressStatus">A CARREGAR...</span>
+                        <span id="progressText">0%</span>
+                    </div>
+                    <div class="w-full bg-white/5 rounded-full h-3 p-0.5 border border-white/5">
+                        <div id="progressBar" class="bg-cyan-500 h-full rounded-full w-0 transition-all duration-300 progress-glow"></div>
+                    </div>
+                </div>
+
+                <p id="status" class="mt-4 text-sm font-medium text-gray-500"></p>
+            </div>
+        </section>
+
+        <section>
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-xl font-bold flex items-center gap-2">
+                    <i class="lucide-history text-cyan-500 w-5"></i> Histórico de Análises
+                </h3>
+            </div>
+            
+            <div id="demoList" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="glass p-6 rounded-3xl animate-pulse flex items-center justify-between">
+                    <div class="h-4 bg-white/5 w-1/2 rounded"></div>
+                    <div class="h-8 bg-white/5 w-20 rounded-lg"></div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        async function upload() {
+            const fileInput = document.getElementById('demoFile');
+            const file = fileInput.files[0];
+            const status = document.getElementById('status');
+            const btn = document.getElementById('uploadBtn');
+            const progressContainer = document.getElementById('progressContainer');
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            const progressStatus = document.getElementById('progressStatus');
+
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('demo', file);
+
+            btn.style.display = "none";
+            progressContainer.classList.remove('hidden');
+            status.innerText = "";
+            
+            const xhr = new XMLHttpRequest();
+
+            xhr.upload.addEventListener("progress", (e) => {
+                if (e.lengthComputable) {
+                    const percent = Math.round((e.loaded / e.total) * 100);
+                    progressBar.style.width = percent + "%";
+                    progressText.innerText = percent + "%";
+                    progressStatus.innerText = `A ENVIAR: ${(e.loaded / 1024 / 1024).toFixed(1)}MB / ${(e.total / 1024 / 1024).toFixed(1)}MB`;
+                }
+            });
+
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    progressStatus.innerText = "CONCLUÍDO!";
+                    progressBar.classList.replace('bg-cyan-500', 'bg-green-500');
+                    status.innerText = "✅ Demo enviada com sucesso!";
+                    setTimeout(() => {
+                        btn.style.display = "inline-block";
+                        progressContainer.classList.add('hidden');
+                        loadDemos();
+                    }, 2000);
+                } else {
+                    status.innerText = "❌ Erro no servidor: " + xhr.statusText;
+                    btn.style.display = "inline-block";
+                }
+            };
+
+            xhr.open("POST", "/upload");
+            xhr.send(formData);
+        }
+
+        async function loadDemos() {
+            try {
+                const res = await fetch('/demos');
+                const demos = await res.json();
+                const list = document.getElementById('demoList');
+                
+                if (demos.length === 0) {
+                    list.innerHTML = `<div class="col-span-full glass p-10 rounded-3xl text-center text-gray-500 italic text-sm">Ainda não tens nenhuma demo processada.</div>`;
+                    return;
+                }
+
+                list.innerHTML = demos.map(d => `
+                    <div class="glass p-6 rounded-3xl flex justify-between items-center group hover:bg-white/[0.03] transition-all">
+                        <div class="flex items-center gap-4 overflow-hidden">
+                            <div class="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center text-cyan-400">
+                                <i class="lucide-file-video w-5"></i>
+                            </div>
+                            <span class="text-sm font-semibold truncate pr-4">${d}</span>
+                        </div>
+                        <a href="demo.html?file=${d}" class="neo-btn bg-cyan-500/10 hover:bg-cyan-500 text-cyan-400 hover:text-black px-5 py-2.5 rounded-xl text-xs font-black transition-all">
+                            ABRIR
+                        </a>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error("Erro ao carregar demos");
+            }
+        }
+        loadDemos();
+    </script>
+</body>
+</html>
