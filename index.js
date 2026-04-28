@@ -1,60 +1,68 @@
-const express = require("express");
-const fileUpload = require("express-fileupload");
-const fs = require("fs");
-const path = require("path");
-const DemoFile = require("demofile");
-const { analyzeRound } = require("./coachEngine");
+async function parseDemo(filePath) {
+    return new Promise((resolve, reject) => {
+        try {
+            const buffer = fs.readFileSync(filePath);
+            const demo = new DemoFile.DemoFile();
+            const rounds = [];
+            let mapName = "unknown";
 
-const app = express();
+            demo.on("start", () => {
+                mapName = demo.header.mapName;
+            });
 
-// 1. CONFIGURAÇÃO CRÍTICA: O fileUpload tem de vir ANTES de tudo
-app.use(fileUpload({
-    limits: { fileSize: 500 * 1024 * 1024 }, // 500MB
-    useTempFiles: true,
-    tempFileDir: '/tmp/',
-    createParentPath: true,
-    debug: true
-}));
+            demo.gameEvents.on("round_start", () => {
+                const currentRound = demo.gameRules.roundsPlayed + 1;
+                rounds[currentRound] = { id: currentRound, positions: [] };
+            });
 
-// 2. Aumentar limites do Express para dados textuais
-app.use(express.json({ limit: '500mb' }));
-app.use(express.urlencoded({ limit: '500mb', extended: true }));
+            // Analisar apenas a cada 256 ticks (reduz o uso de CPU/RAM drasticamente)
+            demo.on("tick", () => {
+                const currentRound = demo.gameRules.roundsPlayed + 1;
+                if (rounds[currentRound] && demo.currentTick % 256 === 0) {
+                    demo.players.forEach(p => {
+                        if (p && p.isAlive && p.position) {
+                            rounds[currentRound].positions.push({ 
+                                x: p.position.x, 
+                                y: p.position.y, 
+                                side: p.side 
+                            });
+                        }
+                    });
+                }
+            });
 
-app.use(express.static("public"));
+            demo.on("end", () => {
+                resolve({ map: mapName, rounds: rounds.filter(Boolean) });
+            });
 
-const UPLOAD_DIR = path.join(__dirname, "uploads");
-if (!fs.existsSync(UPLOAD_DIR)) {
-    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+            // Erro caso o parser falhe
+            demo.on("error", (err) => reject(err));
+
+            demo.parse(buffer);
+        } catch (e) {
+            reject(e);
+        }
+    });
 }
 
-// Rota de Upload
-app.post("/upload", (req, res) => {
-    console.log("LOG: Tentativa de upload recebida...");
+app.get("/demo/:name", async (req, res) => {
+    // Aumentar o tempo limite de resposta para 5 minutos
+    req.setTimeout(300000); 
     
-    if (!req.files || !req.files.demo) {
-        console.log("LOG: Ficheiro não encontrado no request.");
-        return res.status(400).send("Ficheiro não enviado.");
+    const name = req.params.name;
+    const filePath = path.join(UPLOAD_DIR, name);
+
+    if (!fs.existsSync(filePath)) return res.status(404).send("Ficheiro não encontrado");
+
+    try {
+        console.log(`A iniciar análise da demo: ${name}`);
+        const data = await parseDemo(filePath);
+        const analyzed = data.rounds.map(r => analyzeRound(r));
+        
+        console.log("Análise concluída com sucesso!");
+        res.json({ file: name, map: data.map, rounds: analyzed });
+    } catch (err) {
+        console.error("ERRO NO PARSER:", err);
+        res.status(500).json({ error: "O servidor não aguentou processar esta demo." });
     }
-
-    const demoFile = req.files.demo;
-    const savePath = path.join(UPLOAD_DIR, demoFile.name);
-
-    demoFile.mv(savePath, (err) => {
-        if (err) {
-            console.error("LOG: Erro ao mover ficheiro:", err);
-            return res.status(500).send(err);
-        }
-        console.log("LOG: Upload guardado em " + savePath);
-        res.status(200).send("OK");
-    });
-});
-
-app.get("/demos", (req, res) => {
-    const files = fs.readdirSync(UPLOAD_DIR).filter(f => f.endsWith('.dem'));
-    res.json(files);
-});
-
-// Mantém o resto do teu código (app.get("/demo/:name") e app.listen...) abaixo daqui
-app.listen(3000, '0.0.0.0', () => {
-    console.log("🚀 NEXUS ENGINE: Online e com limites expandidos.");
 });
