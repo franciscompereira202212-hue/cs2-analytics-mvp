@@ -1,83 +1,55 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8" />
-  <title>Coach Analysis</title>
+<meta charset="UTF-8" />
+<title>Coach Analysis</title>
 
-  <style>
-    body {
-      margin: 0;
-      font-family: Arial;
-      background: #0a0f1c;
-      color: white;
-      padding: 30px;
-    }
+<style>
+body {
+  margin: 0;
+  font-family: Arial;
+  background: #0a0f1c;
+  color: white;
+  padding: 20px;
+}
 
-    .card {
-      background: #111827;
-      padding: 20px;
-      border-radius: 10px;
-      max-width: 800px;
-    }
+.card {
+  background: #111827;
+  padding: 15px;
+  border-radius: 10px;
+}
 
-    .verdict {
-      font-size: 18px;
-      margin-bottom: 15px;
-      color: #60a5fa;
-    }
-
-    .round {
-      background: #1f2937;
-      margin: 10px 0;
-      padding: 10px;
-      border-radius: 8px;
-    }
-
-    .bad {
-      border-left: 4px solid red;
-    }
-
-    .good {
-      border-left: 4px solid green;
-    }
-
-    .ok {
-      border-left: 4px solid orange;
-    }
-  </style>
+.bad { border-left: 4px solid red; padding: 10px; }
+.ok { border-left: 4px solid orange; padding: 10px; }
+.good { border-left: 4px solid green; padding: 10px; }
+</style>
 </head>
 
 <body>
 
 <a href="/">← Back</a>
 
-<h2>👨‍🏫 Coach Analysis</h2>
+<h2>Coach Report</h2>
 
-<div class="card" id="content">Loading...</div>
+<div id="content" class="card">Loading...</div>
 
 <script>
-
-const params = new URLSearchParams(window.location.search);
-const file = params.get("file");
+const file = new URLSearchParams(window.location.search).get("file");
 
 async function load() {
-  const res = await fetch(`/demo/${encodeURIComponent(file)}`);
+  const res = await fetch("/demo/" + file);
   const data = await res.json();
 
-  let html = `
-    <div class="verdict">Verdict: ${data.coachVerdict}</div>
-  `;
+  let html = `<h3>${data.verdict}</h3>`;
 
   data.rounds.forEach(r => {
-    let cls = "ok";
-    if (r.rating === "BAD") cls = "bad";
-    if (r.rating === "GOOD") cls = "good";
+    let cls = r.rating === "BAD" ? "bad" : r.rating === "GOOD" ? "good" : "ok";
 
     html += `
-      <div class="round ${cls}">
-        <b>Round ${r.round}</b> - ${r.rating}
+      <div class="${cls}">
+        <b>Round ${r.id}</b> - ${r.rating}
         <ul>
-          ${r.mistakes.map(m => `<li>${m}</li>`).join("")}
+          ${(r.issues || []).map(i => `<li>${i}</li>`).join("")}
         </ul>
       </div>
     `;
@@ -87,7 +59,6 @@ async function load() {
 }
 
 load();
-
 </script>
 
 </body>
