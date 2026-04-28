@@ -1,5 +1,5 @@
 {
-  "name": "cs2",
+  "name": "cs2-analytics",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
@@ -7,6 +7,7 @@
   },
   "dependencies": {
     "express": "^4.18.2",
-    "express-fileupload": "^1.4.0"
+    "express-fileupload": "^1.4.0",
+    "demofile": "^1.9.0"
   }
 }
