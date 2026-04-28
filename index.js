@@ -29,3 +29,20 @@ app.get("/demos", (req, res) => {
 });
 
 app.listen(3000, () => console.log("Servidor ligado"));
+
+// 🔥 análise fake de demo
+app.get("/demo/:name", (req, res) => {
+  const name = req.params.name;
+
+  res.json({
+    file: name,
+    rounds: Math.floor(Math.random() * 30),
+    kills: Math.floor(Math.random() * 25),
+    deaths: Math.floor(Math.random() * 20),
+    mistakes: [
+      "Late rotation",
+      "No flash entry",
+      "Bad positioning"
+    ]
+  });
+});
