@@ -1,18 +1,131 @@
 <!DOCTYPE html>
 <html>
+<head>
+  <meta charset="UTF-8" />
+  <title>CS2 Analytics</title>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial;
+      background: #0b0f19;
+      color: #ffffff;
+    }
+
+    .container {
+      padding: 30px;
+      max-width: 1000px;
+      margin: auto;
+    }
+
+    .header {
+      font-size: 28px;
+      font-weight: bold;
+      margin-bottom: 20px;
+    }
+
+    .card {
+      background: #141a2a;
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+    }
+
+    input {
+      padding: 10px;
+      width: 70%;
+      margin-top: 10px;
+    }
+
+    button {
+      padding: 10px 15px;
+      margin-left: 10px;
+      background: #3b82f6;
+      border: none;
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #2563eb;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 15px;
+      margin-top: 20px;
+    }
+
+    .box {
+      background: #1c2336;
+      padding: 15px;
+      border-radius: 10px;
+    }
+
+    a {
+      color: #60a5fa;
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    ul {
+      padding-left: 18px;
+    }
+  </style>
+</head>
+
 <body>
 
-<h2>Upload Demo</h2>
+<div class="container">
 
-<input type="file" id="file">
-<button onclick="upload()">Upload</button>
+  <div class="header">🎯 CS2 Analytics Dashboard</div>
 
-<h3>Demos:</h3>
-<ul id="list"></ul>
+  <!-- UPLOAD -->
+  <div class="card">
+    <h3>Upload Demo</h3>
+
+    <input type="file" id="file">
+    <button onclick="upload()">Upload</button>
+  </div>
+
+  <!-- STATS -->
+  <div class="grid">
+
+    <div class="box">
+      <h4>Demos</h4>
+      <div id="count">0</div>
+    </div>
+
+    <div class="box">
+      <h4>Status</h4>
+      <div>Ready</div>
+    </div>
+
+    <div class="box">
+      <h4>Mode</h4>
+      <div>MVP</div>
+    </div>
+
+  </div>
+
+  <!-- LISTA -->
+  <div class="card">
+    <h3>Demos Uploaded</h3>
+    <ul id="list"></ul>
+  </div>
+
+</div>
 
 <script>
+
 async function upload() {
   const file = document.getElementById("file").files[0];
+  if (!file) return alert("Escolhe um ficheiro");
 
   const data = new FormData();
   data.append("demo", file);
@@ -25,23 +138,29 @@ async function upload() {
   loadDemos();
 }
 
-// 🔥 buscar demos
 async function loadDemos() {
   const res = await fetch("/demos");
   const files = await res.json();
+
+  document.getElementById("count").innerText = files.length;
 
   const list = document.getElementById("list");
   list.innerHTML = "";
 
   files.forEach(f => {
     const li = document.createElement("li");
-    li.textContent = f;
+
+    const link = document.createElement("a");
+    link.href = `/demo.html?file=${encodeURIComponent(f)}`;
+    link.textContent = "▶ " + f;
+
+    li.appendChild(link);
     list.appendChild(li);
   });
 }
 
-// carregar ao abrir
 loadDemos();
+
 </script>
 
 </body>
