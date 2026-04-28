@@ -7,57 +7,75 @@ const { analyzeRound } = require("./coachEngine");
 
 const app = express();
 
-// 1. CONFIGURAÇÃO DE LIMITES (CRÍTICO)
-app.use(express.json({ limit: '200mb' }));
-app.use(express.urlencoded({ limit: '200mb', extended: true }));
-
+// Configuração para aceitar demos grandes (até 200MB)
 app.use(fileUpload({
-    limits: { fileSize: 200 * 1024 * 1024 }, // 200MB
+    limits: { fileSize: 200 * 1024 * 1024 },
     useTempFiles: true,
     tempFileDir: '/tmp/',
-    abortOnLimit: true,
-    createParentPath: true,
-    debug: true // Isto vai mostrar o progresso no console do Replit
+    createParentPath: true
 }));
 
 app.use(express.static("public"));
 
 const UPLOAD_DIR = path.join(__dirname, "uploads");
-if (!fs.existsSync(UPLOAD_DIR)) {
-    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-}
+if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR);
 
-// 2. ROTA DE UPLOAD REFEITA
+// Rota de Upload
 app.post("/upload", (req, res) => {
-    console.log("--- NOVO PEDIDO DE UPLOAD ---");
+    if (!req.files || !req.files.demo) return res.status(400).send("Ficheiro não encontrado.");
+    const file = req.files.demo;
+    const savePath = path.join(UPLOAD_DIR, file.name);
     
-    if (!req.files || Object.keys(req.files).length === 0) {
-        console.error("Nenhum ficheiro recebido.");
-        return res.status(400).send("Nenhum ficheiro selecionado.");
-    }
-
-    const demoFile = req.files.demo;
-    const savePath = path.join(UPLOAD_DIR, demoFile.name);
-
-    console.log(`A guardar: ${demoFile.name} (${(demoFile.size / 1024 / 1024).toFixed(2)} MB)`);
-
-    demoFile.mv(savePath, (err) => {
-        if (err) {
-            console.error("Erro ao mover ficheiro:", err);
-            return res.status(500).send(err);
-        }
-        console.log("Upload guardado com sucesso!");
-        res.status(200).send("Upload completo");
+    file.mv(savePath, (err) => {
+        if (err) return res.status(500).send(err);
+        res.send("Upload completo!");
     });
 });
 
-// As restantes rotas (/demos e /demo/:name) continuam iguais...
+// Lista todas as demos
 app.get("/demos", (req, res) => {
-    const files = fs.readdirSync(UPLOAD_DIR);
-    res.json(files);
+    res.json(fs.readdirSync(UPLOAD_DIR).filter(f => f.endsWith('.dem')));
 });
 
-// Mantém o teu parser aqui em baixo como estava...
-app.listen(3000, '0.0.0.0', () => {
-    console.log("✅ SERVIDOR ATIVO: Porta 3000");
+// Parser de Demo com deteção de Mapa
+function parseDemo(filePath) {
+    return new Promise((resolve, reject) => {
+        const buffer = fs.readFileSync(filePath);
+        const demo = new DemoFile.DemoFile();
+        const rounds = [];
+        let mapName = "unknown";
+
+        demo.on("start", () => { mapName = demo.header.mapName; });
+
+        demo.gameEvents.on("round_start", () => {
+            const currentRound = demo.gameRules.roundsPlayed + 1;
+            rounds[currentRound] = { id: currentRound, positions: [] };
+        });
+
+        demo.on("tick", () => {
+            const currentRound = demo.gameRules.roundsPlayed + 1;
+            if (rounds[currentRound] && demo.currentTick % 128 === 0) { // Analisa a cada 2 seg para poupar CPU
+                demo.players.forEach(p => {
+                    if (p && p.isAlive) {
+                        rounds[currentRound].positions.push({ x: p.position.x, y: p.position.y, side: p.side });
+                    }
+                });
+            }
+        });
+
+        demo.on("end", () => resolve({ map: mapName, rounds: rounds.filter(Boolean) }));
+        demo.parse(buffer);
+    });
+}
+
+app.get("/demo/:name", async (req, res) => {
+    try {
+        const data = await parseDemo(path.join(UPLOAD_DIR, req.params.name));
+        const analyzed = data.rounds.map(r => analyzeRound(r));
+        res.json({ file: req.params.name, map: data.map, rounds: analyzed });
+    } catch (err) {
+        res.status(500).json({ error: "Erro ao processar." });
+    }
 });
+
+app.listen(3000, '0.0.0.0', () => console.log("🚀 Nexus Server Online na Porta 3000"));
