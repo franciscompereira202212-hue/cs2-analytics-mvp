@@ -1,35 +1,73 @@
 <!DOCTYPE html>
 <html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Demo Analysis</title>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial;
+      background: #0a0f1c;
+      color: white;
+      padding: 30px;
+    }
+
+    .card {
+      background: #111827;
+      padding: 20px;
+      border-radius: 10px;
+      max-width: 600px;
+    }
+
+    .stat {
+      display: flex;
+      justify-content: space-between;
+      margin: 8px 0;
+    }
+
+    ul {
+      margin-top: 10px;
+    }
+
+    a {
+      color: #60a5fa;
+    }
+  </style>
+</head>
+
 <body>
+
+<a href="/">← Back</a>
 
 <h2>Demo Analysis</h2>
 
-<div id="content"></div>
+<div class="card" id="content">Loading...</div>
 
 <script>
+
 const params = new URLSearchParams(window.location.search);
 const file = params.get("file");
 
-async function loadDemo() {
-  const res = await fetch(`/demo/${file}`);
+async function load() {
+  const res = await fetch(`/demo/${encodeURIComponent(file)}`);
   const data = await res.json();
 
-  const div = document.getElementById("content");
+  document.getElementById("content").innerHTML = `
+    <div class="stat"><span>File</span><b>${data.file}</b></div>
+    <div class="stat"><span>Rounds</span><b>${data.rounds}</b></div>
+    <div class="stat"><span>Kills</span><b>${data.kills}</b></div>
+    <div class="stat"><span>Deaths</span><b>${data.deaths}</b></div>
 
-  div.innerHTML = `
-    <p><b>File:</b> ${data.file}</p>
-    <p><b>Rounds:</b> ${data.rounds}</p>
-    <p><b>Kills:</b> ${data.kills}</p>
-    <p><b>Deaths:</b> ${data.deaths}</p>
-
-    <h3>Mistakes:</h3>
+    <h3>Mistakes</h3>
     <ul>
       ${data.mistakes.map(m => `<li>${m}</li>`).join("")}
     </ul>
   `;
 }
 
-loadDemo();
+load();
+
 </script>
 
 </body>
