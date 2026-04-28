@@ -1,78 +1,168 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt">
 <head>
   <meta charset="UTF-8" />
-  <title>CS2 Coach Dashboard</title>
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nexus.gg | AI Intelligence Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lucide-static@0.321.0/font/lucide.min.css">
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+    
     body {
       margin: 0;
-      font-family: Arial;
-      background: #0a0f1c;
+      font-family: 'Inter', sans-serif;
+      background: #05070a;
       color: white;
+    }
+
+    .glass {
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .sidebar-item {
       display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      border-radius: 12px;
+      transition: all 0.2s;
+      color: #94a3b8;
     }
 
-    .sidebar {
-      width: 220px;
-      background: #0f172a;
-      height: 100vh;
-      padding: 20px;
+    .sidebar-item:hover, .sidebar-item.active {
+      background: rgba(0, 242, 255, 0.1);
+      color: #00f2ff;
     }
 
-    .main {
-      flex: 1;
-      padding: 25px;
+    .drop-zone {
+      border: 2px dashed rgba(255, 255, 255, 0.1);
+      transition: border 0.3s;
     }
 
-    .card {
-      background: #111827;
-      padding: 15px;
-      border-radius: 10px;
-      margin-bottom: 15px;
-    }
-
-    a {
-      color: #60a5fa;
+    .drop-zone:hover {
+      border-color: #00f2ff;
     }
   </style>
 </head>
 
-<body>
+<body class="flex">
 
-<div class="sidebar">
-  <h3>CS2 Coach</h3>
-  <p><a href="#">Dashboard</a></p>
-</div>
-
-<div class="main">
-
-  <div class="card">
-    <h3>Upload Demo</h3>
-    <input type="file" id="file">
-    <button onclick="upload()">Upload</button>
+<div class="sidebar w-72 h-screen glass border-r border-white/5 p-6 hidden md:block">
+  <div class="mb-10 flex items-center gap-2">
+    <div class="w-8 h-8 bg-cyan-500 rounded-lg flex items-center justify-center">
+      <i class="lucide-layout-grid text-black"></i>
+    </div>
+    <h2 class="text-xl font-black italic tracking-tighter uppercase">Nexus<span class="text-cyan-500">.gg</span></h2>
   </div>
 
-  <div class="card">
-    <h3>Demos</h3>
-    <ul id="list"></ul>
+  <nav class="space-y-2">
+    <a href="#" class="sidebar-item active"><i class="lucide-home"></i> Dashboard</a>
+    <a href="#" class="sidebar-item"><i class="lucide-ghost"></i> Ghost Coach</a>
+    <a href="#" class="sidebar-item"><i class="lucide-mic"></i> Voice AI</a>
+    <a href="#" class="sidebar-item"><i class="lucide-bar-chart-3"></i> Pro Stats</a>
+    <div class="pt-10">
+      <p class="text-[10px] text-gray-500 uppercase tracking-[3px] mb-4">Settings</p>
+      <a href="#" class="sidebar-item"><i class="lucide-settings"></i> Configurações</a>
+    </div>
+  </nav>
+</div>
+
+<div class="flex-1 h-screen overflow-y-auto p-8">
+  
+  <div class="flex justify-between items-center mb-12">
+    <div>
+      <h1 class="text-3xl font-bold">Bem-vindo, Player</h1>
+      <p class="text-gray-400">Tens 0 demos pendentes para análise.</p>
+    </div>
+    <div class="flex items-center gap-4">
+        <div class="text-right">
+            <p class="text-sm font-bold">Pro Account</p>
+            <p class="text-[10px] text-cyan-400">GHOST MODE ACTIVE</p>
+        </div>
+        <div class="w-12 h-12 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 border-2 border-white/10 shadow-lg"></div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    
+    <div class="lg:col-span-2">
+      <div class="glass p-10 rounded-3xl drop-zone relative overflow-hidden group">
+        <div class="relative z-10 text-center">
+          <div class="w-20 h-20 bg-cyan-500/10 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition">
+            <i class="lucide-upload-cloud text-cyan-400 text-3xl"></i>
+          </div>
+          <h3 class="text-xl font-bold mb-2">Carregar Nova Demo</h3>
+          <p class="text-gray-400 mb-6 text-sm">Arraste o ficheiro .dem ou clique para explorar</p>
+          
+          <input type="file" id="file" class="absolute inset-0 opacity-0 cursor-pointer">
+          <button onclick="upload()" class="bg-cyan-500 hover:bg-cyan-400 text-black font-bold px-8 py-3 rounded-xl transition shadow-[0_0_20px_rgba(0,242,255,0.3)]">
+            Analisar Agora
+          </button>
+        </div>
+        <div class="absolute -bottom-10 -right-10 w-40 h-40 bg-cyan-500/5 rounded-full blur-3xl"></div>
+      </div>
+
+      <div class="mt-10">
+        <div class="flex justify-between items-center mb-6">
+          <h3 class="text-lg font-bold">Histórico de Análises</h3>
+          <button onclick="load()" class="text-xs text-cyan-400 hover:underline">Atualizar lista</button>
+        </div>
+        <div id="list" class="grid grid-cols-1 gap-4">
+          <p class="text-gray-600 italic">A carregar demos...</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="space-y-6">
+      <div class="glass p-6 rounded-3xl">
+        <h4 class="text-xs font-bold text-gray-500 uppercase mb-4 tracking-widest">Ghost Insights</h4>
+        <div class="space-y-4">
+          <div class="flex justify-between">
+            <span class="text-sm">Média de Sync com Pros</span>
+            <span class="text-cyan-400 font-bold">72%</span>
+          </div>
+          <div class="w-full bg-white/5 h-2 rounded-full overflow-hidden">
+            <div class="bg-cyan-500 h-full w-[72%] shadow-[0_0_10px_#00f2ff]"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="glass p-6 rounded-3xl border-l-2 border-yellow-500">
+        <h4 class="text-xs font-bold text-gray-500 uppercase mb-2 tracking-widest">Aviso do Coach</h4>
+        <p class="text-sm text-gray-300">As tuas últimas 3 demos mostram que estás a gastar demasiado tempo a dar "hold" sem utilidade.</p>
+      </div>
+    </div>
+
   </div>
 
 </div>
 
 <script>
 async function upload() {
-  const file = document.getElementById("file").files[0];
+  const fileInput = document.getElementById("file");
+  const file = fileInput.files[0];
+  if(!file) return alert("Seleciona um ficheiro primeiro!");
 
   const data = new FormData();
   data.append("demo", file);
 
-  await fetch("/upload", {
-    method: "POST",
-    body: data
-  });
+  // Efeito visual de loading
+  const btn = document.querySelector('button[onclick="upload()"]');
+  btn.textContent = "A processar...";
+  btn.disabled = true;
 
-  load();
+  try {
+    await fetch("/upload", { method: "POST", body: data });
+    load();
+  } catch (err) {
+    console.error(err);
+  } finally {
+    btn.textContent = "Analisar Agora";
+    btn.disabled = false;
+  }
 }
 
 async function load() {
@@ -82,15 +172,30 @@ async function load() {
   const list = document.getElementById("list");
   list.innerHTML = "";
 
+  if(files.length === 0) {
+      list.innerHTML = `<div class="text-center p-10 text-gray-500 border border-dashed border-white/5 rounded-2xl">Nenhuma demo encontrada.</div>`;
+      return;
+  }
+
   files.forEach(f => {
-    const li = document.createElement("li");
-
-    const a = document.createElement("a");
-    a.href = `/demo.html?file=${f}`;
-    a.textContent = f;
-
-    li.appendChild(a);
-    list.appendChild(li);
+    const card = document.createElement("div");
+    card.className = "glass p-4 rounded-2xl flex justify-between items-center hover:border-cyan-500/50 transition group";
+    
+    card.innerHTML = `
+      <div class="flex items-center gap-4">
+        <div class="w-10 h-10 bg-white/5 rounded-lg flex items-center justify-center">
+          <i class="lucide-file-text text-gray-400 group-hover:text-cyan-400"></i>
+        </div>
+        <div>
+          <p class="font-bold text-sm truncate w-40 md:w-64">${f}</p>
+          <p class="text-[10px] text-gray-500 uppercase">CS2 Match • Mirage</p>
+        </div>
+      </div>
+      <a href="/demo.html?file=${f}" class="bg-white/5 hover:bg-cyan-500 hover:text-black px-4 py-2 rounded-lg text-xs font-bold transition">
+        Ver Análise
+      </a>
+    `;
+    list.appendChild(card);
   });
 }
 
