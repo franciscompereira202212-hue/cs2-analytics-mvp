@@ -8,82 +8,110 @@
     body {
       margin: 0;
       font-family: Arial;
-      background: #0b0f19;
-      color: #ffffff;
+      background: #0a0f1c;
+      color: white;
+      display: flex;
     }
 
-    .container {
-      padding: 30px;
-      max-width: 1000px;
-      margin: auto;
+    /* SIDEBAR */
+    .sidebar {
+      width: 220px;
+      background: #0f172a;
+      height: 100vh;
+      padding: 20px;
+      box-sizing: border-box;
     }
 
-    .header {
-      font-size: 28px;
+    .logo {
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 30px;
+    }
+
+    .nav {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .nav a {
+      color: #cbd5e1;
+      text-decoration: none;
+      padding: 8px;
+      border-radius: 6px;
+    }
+
+    .nav a:hover {
+      background: #1e293b;
+    }
+
+    /* MAIN */
+    .main {
+      flex: 1;
+      padding: 25px;
+    }
+
+    .title {
+      font-size: 26px;
       font-weight: bold;
       margin-bottom: 20px;
     }
 
     .card {
-      background: #141a2a;
-      padding: 20px;
-      border-radius: 12px;
+      background: #111827;
+      padding: 15px;
+      border-radius: 10px;
       margin-bottom: 20px;
     }
 
     input {
       padding: 10px;
-      width: 70%;
-      margin-top: 10px;
+      width: 60%;
     }
 
     button {
       padding: 10px 15px;
-      margin-left: 10px;
       background: #3b82f6;
       border: none;
       color: white;
       border-radius: 8px;
       cursor: pointer;
+      margin-left: 10px;
     }
 
     button:hover {
       background: #2563eb;
     }
 
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 15px;
-      margin-top: 20px;
-    }
-
-    .box {
-      background: #1c2336;
-      padding: 15px;
-      border-radius: 10px;
+    ul {
+      padding-left: 18px;
     }
 
     a {
       color: #60a5fa;
       text-decoration: none;
     }
-
-    a:hover {
-      text-decoration: underline;
-    }
-
-    ul {
-      padding-left: 18px;
-    }
   </style>
 </head>
 
 <body>
 
-<div class="container">
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <div class="logo">🎯 CS2 ANALYTICS</div>
 
-  <div class="header">🎯 CS2 Analytics Dashboard</div>
+  <div class="nav">
+    <a href="#">Dashboard</a>
+    <a href="#">Demos</a>
+    <a href="#">Ghost (soon)</a>
+    <a href="#">Voice (soon)</a>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <div class="title">Dashboard</div>
 
   <!-- UPLOAD -->
   <div class="card">
@@ -94,28 +122,14 @@
   </div>
 
   <!-- STATS -->
-  <div class="grid">
-
-    <div class="box">
-      <h4>Demos</h4>
-      <div id="count">0</div>
-    </div>
-
-    <div class="box">
-      <h4>Status</h4>
-      <div>Ready</div>
-    </div>
-
-    <div class="box">
-      <h4>Mode</h4>
-      <div>MVP</div>
-    </div>
-
+  <div class="card">
+    <h3>Overview</h3>
+    <p>Demos uploaded: <b id="count">0</b></p>
   </div>
 
-  <!-- LISTA -->
+  <!-- LIST -->
   <div class="card">
-    <h3>Demos Uploaded</h3>
+    <h3>Demos</h3>
     <ul id="list"></ul>
   </div>
 
